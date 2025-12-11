@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Word Search</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: url('background.png') center/cover no-repeat fixed;
+      min-height: 100vh;
+      color: white;
+      padding: 0;
+      overflow: hidden; /* Запрещаем любую прокрутку */
+      position: relative; /* ← важно для абсолютного позиционирования */
+    }
+
+    .header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 15px 0;
+      z-index: 100;
+      position: relative;
+    }
+
+    .score-panel {
+      background: rgba(0, 0, 30, 0.6);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 0 20px rgba(100, 200, 255, 0.3);
+      /* 👇 МЕНЯЙТЕ ЭТО, ЧТОБЫ ДВИГАТЬ ПАНЕЛЬ СЧЁТА */
+      position: absolute;
+      top: 15px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .star {
+      width: 60px;
+      height: 60px;
+      filter: drop-shadow(0 0 6px #fff);
+    }
+
+    .score-text {
+      font-size: 24px;
+      font-weight: bold;
+      text-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+    }
+
+    /* === 🟦 ПОЛЕ WORDSEARCH — МОЖНО ДВИГАТЬ ОТДЕЛЬНО === */
+    .wordsearch-grid {
+      position: absolute;
+      display: grid;
+      row-gap: 6px;
+      column-gap: 0; /* ← без горизонтальных промежутков */
+      background: rgba(194, 206, 39, 0.49);
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 0 20px rgba(100, 200, 255, 0.3);
+      /* 👇 МЕНЯЙТЕ ЭТИ ЗНАЧЕНИЯ, ЧТОБЫ ДВИГАТЬ ПОЛЕ */
+      top: 50px;    /* отступ сверху */
+      left: 50px;    /* отступ слева */
+      min-width: 350px;  /* фиксированная ширина */
+	  min-height: 350px;  /* фиксированная высота */
+    }
+
+    .letter {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: bold;
+  color: #001f4d;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: linear-gradient(145deg, #e6f2ff, #99ccff);
+  box-shadow: 
+    inset 0 2px 4px rgba(255, 255, 255, 0.7),
+    0 4px 8px rgba(0, 0, 0, 0.1);
+  border: 2px solid #80b3ff;
+  position: relative;
+}
+
+.letter::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 12px;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  transform: rotate(45deg);
+  z-index: 1;
+}
+
+.letter.correct {
+  background: linear-gradient(145deg, #ccffcc, #66cc66);
+  color: #003322;
+  box-shadow: 
+    inset 0 2px 4px rgba(255, 255, 255, 0.7),
+    0 4px 8px rgba(0, 0, 0, 0.1);
+  border: 2px solid #33aa33;
+}
+
+.letter.correct::before {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.letter.incorrect-temp {
+  background: linear-gradient(145deg, #ffcccc, #ff6666);
+  color: white;
+  box-shadow: 
+    inset 0 2px 4px rgba(255, 255, 255, 0.7),
+    0 4px 8px rgba(0, 0, 0, 0.1);
+  border: 2px solid #cc3333;
+}
+
+.letter.incorrect-temp::before {
+  background: rgba(255, 255, 255, 0.8);
+    }
+
+    /* === 🟩 ПАНЕЛЬ С КАРТИНКАМИ — НЕЗАВИСИМОЕ ПОЛОЖЕНИЕ === */
+   .image-panel {
+  position: absolute;
+  /* 👇 ОСТАВЬТЕ ТОЛЬКО ОДНУ ПАРУ top/right */
+  top: 40px;    /* ← ваше желаемое положение */
+  right: 200px;  /* ← ваше желаемое положение */
+
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  border-radius: 16px 0 0 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100px;
+  box-shadow: -5px 0 20px rgba(255, 255, 255, 0.2);
+  align-items: center;
+  justify-content: flex-start;
+  z-index: 5;
+  min-height: auto; /* можно просто удалить эту строку — auto по умолчанию */
+}
+
+    .image-item {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .image-item img {
+      width: 50px;
+      height: 50px;
+      object-fit: contain;
+      border-radius: 12px;
+      transition: opacity 0.3s ease, transform 0.2s ease;
+    }
+
+    .image-item:hover img {
+      transform: scale(1.05);
+    }
+
+    .image-item.completed img {
+      opacity: 0.3;
+    }
+
+    .image-item.completed::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(45deg, rgba(0,255,170,0.3), rgba(0,255,170,0.1));
+      border-radius: 12px;
+      pointer-events: none;
+    }
+
+    /* === ПАНЕЛЬ ПОБЕДЫ === */
+    .win-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 20, 0.85);
+      backdrop-filter: blur(8px);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+
+    .win-text {
+      font-size: 32px;
+      font-weight: bold;
+      margin-bottom: 25px;
+      text-shadow: 0 0 10px #00ffaa;
+      color: #00ffaa;
+    }
+
+    .restart-btn {
+      background: #002244;
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      font-size: 20px;
+      font-weight: bold;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 15px #00aaff;
+    }
+
+    .restart-btn:hover {
+      background: #003366;
+      transform: scale(1.05);
+      box-shadow: 0 0 25px #00ffaa;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="score-panel">
+      <img src="star.png" alt="Star" class="star">
+      <span class="score-text" id="score">0</span>
+    </div>
+  </div>
+
+  <!-- Поля теперь размещены независимо -->
+  <div class="wordsearch-grid" id="grid"></div>
+  <div class="image-panel" id="imagePanel"></div>
+
+  <div class="win-overlay" id="winOverlay">
+    <div class="win-text">🎉 You Found All Words! 🎉</div>
+    <button class="restart-btn" onclick="restartGame()">Restart the game</button>
+  </div>
+
+  <audio id="rightSound" src="right.mp3"></audio>
+  <audio id="wrongSound" src="wrong.mp3"></audio>
+
+  <script>
+    const wordImageMap = [
+      { image: 'image1.png', word: 'burger' },
+      { image: 'image2.png', word: 'sandwich' },
+      { image: 'image3.png', word: 'salad' },
+      { image: 'image4.png', word: 'fish' },
+      { image: 'image5.png', word: 'eggs' },
+      { image: 'image6.png', word: 'pizza' },
+      { image: 'image7.png', word: 'lemonade' },
+      { image: 'image8.png', word: 'meat' },
+      { image: 'image9.png', word: 'chocolate' },
+    ];
+
+    let score = 0;
+    let placedWords = [];
+    let correctCells = new Set();
+    let totalWords = wordImageMap.length;
+    let completedCount = 0;
+
+    function updateScore() {
+      document.getElementById('score').textContent = score;
+    }
+
+    function initGame() {
+      score = 0;
+      completedCount = 0;
+      correctCells = new Set();
+      placedWords = [];
+      updateScore();
+
+      const gridEl = document.getElementById('grid');
+      gridEl.innerHTML = '';
+      const imagePanel = document.getElementById('imagePanel');
+      imagePanel.innerHTML = '';
+      document.getElementById('winOverlay').style.display = 'none';
+
+      const gridSize = 12;
+      const words = wordImageMap.map(item => item.word.toUpperCase());
+      let grid = Array(gridSize).fill().map(() => Array(gridSize).fill(''));
+
+      const directions = [[0, 1], [1, 0]]; // → и ↓
+
+      function placeWord(word) {
+        let attempts = 50;
+        while (attempts-- > 0) {
+          const dir = directions[Math.floor(Math.random() * directions.length)];
+          const startRow = Math.floor(Math.random() * gridSize);
+          const startCol = Math.floor(Math.random() * gridSize);
+          let canPlace = true;
+          let positions = [];
+
+          for (let i = 0; i < word.length; i++) {
+            const r = startRow + dir[0] * i;
+            const c = startCol + dir[1] * i;
+            if (r < 0 || r >= gridSize || c < 0 || c >= gridSize) {
+              canPlace = false; break;
+            }
+            if (grid[r][c] !== '' && grid[r][c] !== word[i]) {
+              canPlace = false; break;
+            }
+            positions.push([r, c]);
+          }
+
+          if (canPlace) {
+            for (let i = 0; i < word.length; i++) {
+              grid[positions[i][0]][positions[i][1]] = word[i];
+            }
+            placedWords.push({ word, positions });
+            return true;
+          }
+        }
+        return false;
+      }
+
+      words.forEach(word => placeWord(word));
+
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      for (let r = 0; r < gridSize; r++) {
+        for (let c = 0; c < gridSize; c++) {
+          if (grid[r][c] === '') {
+            grid[r][c] = alphabet[Math.floor(Math.random() * alphabet.length)];
+          }
+        }
+      }
+
+      gridEl.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+      gridEl.style.gridTemplateRows = `repeat(${gridSize}, 1fr)`;
+
+      for (let r = 0; r < gridSize; r++) {
+        for (let c = 0; c < gridSize; c++) {
+          const cell = document.createElement('div');
+          cell.className = 'letter';
+          cell.textContent = grid[r][c];
+          cell.dataset.row = r;
+          cell.dataset.col = c;
+          cell.addEventListener('click', () => handleCellClick(cell, r, c));
+          gridEl.appendChild(cell);
+        }
+      }
+
+      wordImageMap.forEach((item, idx) => {
+        const div = document.createElement('div');
+        div.className = 'image-item';
+        div.innerHTML = `<img src="${item.image}" alt="Image ${idx + 1}" />`;
+        div.dataset.wordIndex = idx;
+        imagePanel.appendChild(div);
+      });
+    }
+
+    function handleCellClick(cell, r, c) {
+      if (correctCells.has(`${r}-${c}`)) return;
+
+      const isPartOfAnyTarget = placedWords.some(({ word, positions }) => {
+        return positions.some(([pr, pc]) => pr === r && pc === c);
+      });
+
+      if (isPartOfAnyTarget) {
+        cell.classList.add('correct');
+        correctCells.add(`${r}-${c}`);
+
+        placedWords.forEach(({ word, positions }, idx) => {
+          const allFound = positions.every(([pr, pc]) => correctCells.has(`${pr}-${pc}`));
+          const imageItem = document.querySelector(`.image-item[data-word-index="${idx}"]`);
+          if (allFound && !imageItem.classList.contains('completed')) {
+            imageItem.classList.add('completed');
+            score += 10;
+            updateScore();
+            completedCount++;
+            document.getElementById('rightSound').play().catch(() => {});
+
+            if (completedCount === totalWords) {
+              setTimeout(() => {
+                document.getElementById('winOverlay').style.display = 'flex';
+              }, 500);
+            }
+          }
+        });
+      } else {
+        cell.classList.add('incorrect-temp');
+        document.getElementById('wrongSound').play().catch(() => {});
+        setTimeout(() => {
+          cell.classList.remove('incorrect-temp');
+        }, 300);
+      }
+    }
+
+    function restartGame() {
+      initGame();
+    }
+
+    window.onload = initGame;
+  </script>
+</body>
+</html>
